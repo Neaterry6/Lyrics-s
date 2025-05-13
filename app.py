@@ -6,17 +6,17 @@ app = Flask(__name__)
 
 NOTJUSTOK_SEARCH_URL = "https://notjustok.com/search/"
 
-def search_notjustok(song, artist):
-    """Search NotJustOk for the lyrics page link."""
+def search_notjustok(query):
+    """Search NotJustOk for the best lyrics match."""
     try:
-        search_query = f"{artist} {song} lyrics"
-        response = requests.get(NOTJUSTOK_SEARCH_URL + search_query.replace(" ", "-"))
+        search_query = query.replace(" ", "-")
+        response = requests.get(NOTJUSTOK_SEARCH_URL + search_query)
         if response.status_code != 200:
             return None
 
         soup = BeautifulSoup(response.text, "html.parser")
         first_result = soup.find("a", class_="search-result-link")
-        
+
         if first_result:
             return first_result["href"]
         return None
@@ -54,19 +54,15 @@ def scrape_lyrics_data(url):
 def get_lyrics():
     query = request.args.get("query")
     if not query:
-        return jsonify({"error": "Provide song name like 'Baby by Joeboy'"}), 400
+        return jsonify({"error": "Provide a song name like 'Essence' or 'Essence by Wizkid'"}), 400
 
-    artist, song = query.split(" by ") if " by " in query else (None, None)
-    if not artist or not song:
-        return jsonify({"error": "Invalid format! Example: Baby by Joeboy"}), 400
+    lyrics_page = search_notjustok(query)
 
-    lyrics_page = search_notjustok(song, artist)
-    
     if lyrics_page:
         lyrics_data = scrape_lyrics_data(lyrics_page)
         if lyrics_data:
             return jsonify({
-                "title": song,
+                "title": query,
                 "artist": lyrics_data["artist"],
                 "image": lyrics_data["image"],
                 "lyrics": lyrics_data["lyrics"]
