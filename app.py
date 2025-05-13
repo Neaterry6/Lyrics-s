@@ -1,22 +1,42 @@
 import requests
 from flask import Flask, request, jsonify
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-# ✅ Trusted Lyrics API Sources
-GENIUS_SEARCH_URL = "https://genius.com/api/search?q="
-MUSIXMATCH_SEARCH_URL = "https://www.musixmatch.com/search/"
-AZLYRICS_SEARCH_URL = "https://search.azlyrics.com/search.php?q="
+NOTJUSTOK_SEARCH_URL = "https://notjustok.com/search/"
 
-def fetch_lyrics_links(song, artist):
-    """Directly search trusted lyrics sources (Genius, Musixmatch, AZLyrics)"""
+def search_notjustok(song, artist):
+    """Search NotJustOk for the lyrics page link."""
     try:
-        sources = {
-            "Genius": f"{GENIUS_SEARCH_URL}{song}+{artist}",
-            "Musixmatch": f"{MUSIXMATCH_SEARCH_URL}{song}+{artist}",
-            "AZLyrics": f"{AZLYRICS_SEARCH_URL}{song}+{artist}"
-        }
-        return sources
+        search_query = f"{artist} {song} lyrics"
+        response = requests.get(NOTJUSTOK_SEARCH_URL + search_query.replace(" ", "-"))
+        if response.status_code != 200:
+            return None
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        first_result = soup.find("a", class_="search-result-link")
+        
+        if first_result:
+            return first_result["href"]
+        return None
+    except Exception as e:
+        print("Error:", str(e))
+        return None
+
+def scrape_lyrics(url):
+    """Extract lyrics from a NotJustOk lyrics page."""
+    try:
+        response = requests.get(url)
+        if response.status_code != 200:
+            return None
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        lyrics_section = soup.find("div", class_="lyrics-content")
+        
+        if lyrics_section:
+            return "\n".join([p.text for p in lyrics_section.find_all("p")])
+        return None
     except Exception as e:
         print("Error:", str(e))
         return None
@@ -31,12 +51,14 @@ def get_lyrics():
     if not artist or not song:
         return jsonify({"error": "Invalid format! Example: Baby by Joeboy"}), 400
 
-    lyrics_sources = fetch_lyrics_links(song, artist)
-
-    if lyrics_sources:
-        return jsonify({"title": song, "artist": artist, "lyrics_sources": lyrics_sources})
-
-    return jsonify({"error": "Lyrics sources not found!"})
+    lyrics_page = search_notjustok(song, artist)
+    
+    if lyrics_page:
+        lyrics = scrape_lyrics(lyrics_page)
+        if lyrics:
+            return jsonify({"title": song, "artist": artist, "lyrics": lyrics})
+    
+    return jsonify({"error": "Lyrics not found!"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
