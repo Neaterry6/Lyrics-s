@@ -50,15 +50,18 @@ def get_song_metadata(song, artist):
         print("Error:", str(e))
         return None
 
-@app.route("/song", methods=["GET"])
+@app.route("/lyrics", methods=["GET"])
 def get_song_info():
     query = request.args.get("query")
     if not query:
-        return jsonify({"error": "Provide song name with artist in 'Baby Girl by Joeboy' format"}), 400
+        return jsonify({"error": "Provide song name like 'lyrics Baby by Joeboy'"}), 400
+
+    if query.lower().startswith("lyrics "):
+        query = query[7:]  # Remove "lyrics " prefix
 
     artist, song = query.split(" by ") if " by " in query else (None, None)
     if not artist or not song:
-        return jsonify({"error": "Invalid format! Try: song Baby Girl by Joeboy"}), 400
+        return jsonify({"error": "Invalid format! Example: lyrics Baby by Joeboy"}), 400
 
     song_metadata = get_song_metadata(song, artist)
     lyrics_sources = search_duckduckgo(f"{song} {artist} lyrics")
