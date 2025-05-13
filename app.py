@@ -24,19 +24,28 @@ def search_notjustok(song, artist):
         print("Error:", str(e))
         return None
 
-def scrape_lyrics(url):
-    """Extract lyrics from a NotJustOk lyrics page."""
+def scrape_lyrics_data(url):
+    """Extract lyrics, song image, and artist details from a NotJustOk lyrics page."""
     try:
         response = requests.get(url)
         if response.status_code != 200:
             return None
 
         soup = BeautifulSoup(response.text, "html.parser")
+
+        # ✅ Extract full lyrics
         lyrics_section = soup.find("div", class_="lyrics-content")
-        
-        if lyrics_section:
-            return "\n".join([p.text for p in lyrics_section.find_all("p")])
-        return None
+        lyrics = "\n".join([p.text for p in lyrics_section.find_all("p")]) if lyrics_section else "Lyrics not found."
+
+        # ✅ Extract song image
+        image_section = soup.find("img", class_="featured-image")
+        song_image = image_section["src"] if image_section else "No image available."
+
+        # ✅ Extract artist name
+        artist_section = soup.find("h2", class_="artist-name")
+        artist_name = artist_section.text.strip() if artist_section else "Unknown artist."
+
+        return {"lyrics": lyrics, "image": song_image, "artist": artist_name}
     except Exception as e:
         print("Error:", str(e))
         return None
@@ -54,9 +63,14 @@ def get_lyrics():
     lyrics_page = search_notjustok(song, artist)
     
     if lyrics_page:
-        lyrics = scrape_lyrics(lyrics_page)
-        if lyrics:
-            return jsonify({"title": song, "artist": artist, "lyrics": lyrics})
+        lyrics_data = scrape_lyrics_data(lyrics_page)
+        if lyrics_data:
+            return jsonify({
+                "title": song,
+                "artist": lyrics_data["artist"],
+                "image": lyrics_data["image"],
+                "lyrics": lyrics_data["lyrics"]
+            })
     
     return jsonify({"error": "Lyrics not found!"})
 
